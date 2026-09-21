@@ -1,73 +1,87 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
-local camera = Workspace.CurrentCamera
 
--- Настраиваемая скорость передвижения
-local SPEED = 35 
+-- Создаем ScreenGui в CoreGui, чтобы игра не удалила его при респавне
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SpeedGUI"
+screenGui.Parent = CoreGui
 
--- 1. Удаляем хуманоид (обходим античит)
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-if humanoid then
-    humanoid:Destroy()
-end
+-- Главное окно
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 140)
+frame.Position = UDim2.new(0.5, -110, 0.3, -70)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true -- Окно можно перетаскивать мышкой/пальцем
+frame.Parent = screenGui
 
--- 2. Возвращаем камеру обратно на персонажа, чтобы она не улетала
-camera.CameraSubject = rootPart
-camera.CameraType = Enum.CameraType.Custom
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = frame
 
--- 3. Создаем кастомное управление на WASD
-local directions = {
-    W = Vector3.new(0, 0, -1),
-    S = Vector3.new(0, 0, 1),
-    A = Vector3.new(-1, 0, 0),
-    D = Vector3.new(1, 0, 0)
-}
+-- Заголовок
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "Speed Control"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Font = Enum.Font.SourceSansBold
+title.Parent = frame
 
-local activeKeys = {}
+-- Поле ввода скорости (TextBox)
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0.8, 0, 0, 35)
+textBox.Position = UDim2.new(0.1, 0, 0.3, 0)
+textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.PlaceholderText = "Введи скорость..."
+textBox.Text = "16"
+textBox.TextSize = 14
+textBox.Font = Enum.Font.SourceSans
+textBox.Parent = frame
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.W then activeKeys.W = true end
-    if input.KeyCode == Enum.KeyCode.S then activeKeys.S = true end
-    if input.KeyCode == Enum.KeyCode.A then activeKeys.A = true end
-    if input.KeyCode == Enum.KeyCode.D then activeKeys.D = true end
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = textBox
+
+-- Кнопка применения
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0.8, 0, 0, 35)
+button.Position = UDim2.new(0.1, 0, 0.65, 0)
+button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Text = "Установить скорость"
+button.TextSize = 14
+button.Font = Enum.Font.SourceSansBold
+button.Parent = frame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = button
+
+-- Логика изменения скорости
+local customSpeed = 16
+
+button.MouseButton1Click:Connect(function()
+    local val = tonumber(textBox.Text)
+    if val then
+        customSpeed = val
+    end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.W then activeKeys.W = false end
-    if input.KeyCode == Enum.KeyCode.S then activeKeys.S = false end
-    if input.KeyCode == Enum.KeyCode.A then activeKeys.A = false end
-    if input.KeyCode == Enum.KeyCode.D then activeKeys.D = false end
-end)
-
--- Цикл движения (каждый кадр двигаем HumanoidRootPart относительно камеры)
-RunService.RenderStepped:Connect(function(dt)
-    if not character or not rootPart or not rootPart.Parent then return end
-    
-    local moveVector = Vector3.new()
-    local lookVector = camera.CFrame.LookVector
-    local rightVector = camera.CFrame.RightVector
-    
-    -- Убираем наклон по вертикали, чтобы персонаж не летал вверх/вниз при взгляде камеры
-    local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-    local flatRight = Vector3.new(rightVector.X, 0, rightVector.Z).Unit
-
-    if activeKeys.W then moveVector = moveVector + flatLook end
-    if activeKeys.S then moveVector = moveVector - flatLook end
-    if activeKeys.A then moveVector = moveVector - flatRight end
-    if activeKeys.D then moveVector = moveVector + flatRight end
-
-    if moveVector.Magnitude > 0 then
-        moveVector = moveVector.Unit
-        -- Перемещаем персонажа плавным шагом
-        rootPart.CFrame = rootPart.CFrame + (moveVector * SPEED * dt)
-        -- Поворачиваем персонажа по направлению движения
-        rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + flatLook)
+-- Применяем скорость каждый кадр (чтобы античит или игра не сбрасывали)
+RunService.RenderStepped:Connect(function()
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = customSpeed
+        end
     end
 end)
