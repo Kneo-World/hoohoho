@@ -7,17 +7,17 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- Переменная скорости (по умолчанию 35)
 local currentSpeed = 35
+local useCustomMove = true -- Флаг: работаем ли мы по кастомному движению
 
--- 1. Создаем GUI для управления скоростью
+-- 1. Создаем крутое GUI с двумя кнопками
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BypassSpeedGUI"
+screenGui.Name = "EggBypassGUI"
 screenGui.Parent = CoreGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 140)
-frame.Position = UDim2.new(0.5, -110, 0.3, -70)
+frame.Size = UDim2.new(0, 240, 0, 180)
+frame.Position = UDim2.new(0.5, -120, 0.3, -90)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BorderSizePixel = 0
 frame.Active = true
@@ -29,17 +29,18 @@ corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = frame
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35)
+title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = "Anti-Cheat Bypass Speed"
+title.Text = "Egg Helper GUI"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 14
+title.TextSize = 15
 title.Font = Enum.Font.SourceSansBold
 title.Parent = frame
 
+-- Поле ввода скорости
 local textBox = Instance.new("TextBox")
-textBox.Size = UDim2.new(0.8, 0, 0, 35)
-textBox.Position = UDim2.new(0.1, 0, 0.3, 0)
+textBox.Size = UDim2.new(0.85, 0, 0, 30)
+textBox.Position = UDim2.new(0.075, 0, 0.2, 0)
 textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 textBox.PlaceholderText = "Скорость..."
@@ -52,50 +53,102 @@ local boxCorner = Instance.new("UICorner")
 boxCorner.CornerRadius = UDim.new(0, 6)
 boxCorner.Parent = textBox
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0.8, 0, 0, 35)
-button.Position = UDim2.new(0.1, 0, 0.65, 0)
-button.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Text = "Изменить скорость"
-button.TextSize = 14
-button.Font = Enum.Font.SourceSansBold
-button.Parent = frame
+-- Кнопка изменения скорости
+local speedButton = Instance.new("TextButton")
+speedButton.Size = UDim2.new(0.85, 0, 0, 30)
+speedButton.Position = UDim2.new(0.075, 0, 0.42, 0)
+speedButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+speedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedButton.Text = "Применить скорость"
+speedButton.TextSize = 13
+speedButton.Font = Enum.Font.SourceSansBold
+speedButton.Parent = frame
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
-btnCorner.Parent = button
+local sBtnCorner = Instance.new("UICorner")
+sBtnCorner.CornerRadius = UDim.new(0, 6)
+sBtnCorner.Parent = speedButton
 
-button.MouseButton1Click:Connect(function()
+-- Кнопка возврата хуманоида (для получения яйца!)
+local restoreButton = Instance.new("TextButton")
+restoreButton.Size = UDim2.new(0.85, 0, 0, 35)
+restoreButton.Position = UDim2.new(0.075, 0, 0.68, 0)
+restoreButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Зеленая
+restoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+restoreButton.Text = "ВЕРНУТЬ ХУМАНОИД (ЯЙЦО)"
+restoreButton.TextSize = 12
+restoreButton.Font = Enum.Font.SourceSansBold
+restoreButton.Parent = frame
+
+local rBtnCorner = Instance.new("UICorner")
+rBtnCorner.CornerRadius = UDim.new(0, 6)
+rBtnCorner.Parent = restoreButton
+
+-- Обработка кнопки скорости
+speedButton.MouseButton1Click:Connect(function()
     local val = tonumber(textBox.Text)
     if val then
         currentSpeed = val
     end
 end)
 
--- 2. Функция настройки персонажа (удаление хуманоида + фикс камеры)
-local function setupCharacter(char)
+-- Функция удаления хуманоида (для быстрого бега)
+local function removeHumanoid(char)
+    if not useCustomMove then return end
     local rootPart = char:WaitForChild("HumanoidRootPart", 5)
     if not rootPart then return end
 
-    -- Удаляем хуманоид, чтобы сервер не кикал за WalkSpeed
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if humanoid then
         humanoid:Destroy()
     end
 
-    -- Возвращаем камеру на персонажа
     camera.CameraSubject = rootPart
     camera.CameraType = Enum.CameraType.Custom
 end
 
-if player.Character then
-    setupCharacter(player.Character)
+-- Обработка кнопки возврата хуманоида
+restoreButton.MouseButton1Click:Connect(function()
+    useCustomMove = false -- Отключаем кастомное движение, чтобы вернуть контроль игре
+    
+    local char = player.Character
+    if char then
+        -- Проверяем, есть ли уже хуманоид, если нет — создаем стандартный
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then
+            humanoid = Instance.new("Humanoid")
+            humanoid.Parent = char
+        end
+        humanoid.WalkSpeed = 16 -- Возвращаем нормальную скорость для безопасности
+        
+        -- Возвращаем камере стандартный субъект
+        camera.CameraSubject = humanoid
+        
+        -- Сбрасываем платформу/партию, чтобы сервер обновил состояние игрока
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        end
+    end
+end)
+
+-- Инициализация при старте персонажа
+local function onCharacterAdded(char)
+    useCustomMove = true
+    task.wait(0.5) -- Небольшая задержка, чтобы персонаж успел прогрузиться
+    if useCustomMove then
+        removeHumanoid(char)
+    end
 end
 
-player.CharacterAdded:Connect(setupCharacter)
+if player.Character then
+    task.spawn(function()
+        onCharacterAdded(player.Character)
+    end)
+end
 
--- 3. Кастомное управление на WASD без хуманоида
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Управление на WASD без хуманоида
 local activeKeys = {W = false, S = false, A = false, D = false}
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -114,6 +167,8 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 RunService.RenderStepped:Connect(function(dt)
+    if not useCustomMove then return end -- Если нажали вернуть хуманоид — скрипт движения молчит
+    
     local char = player.Character
     if not char then return end
     local rootPart = char:FindFirstChild("HumanoidRootPart")
@@ -133,7 +188,6 @@ RunService.RenderStepped:Connect(function(dt)
 
     if moveVector.Magnitude > 0 then
         moveVector = moveVector.Unit
-        -- Двигаем персонажа через CFrame с учетом введенной в GUI скорости
         rootPart.CFrame = rootPart.CFrame + (moveVector * currentSpeed * dt)
         rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + flatLook)
     end
