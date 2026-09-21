@@ -1,106 +1,73 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
----323232
-
-local Window = Rayfield:CreateWindow({
-   Name = "Steal the Egg | Hard Bypass",
-   LoadingTitle = "Bypassing Anti-Cheat...",
-   LoadingSubtitle = "by Assistant",
-   ConfigurationSaving = { Enabled = false },
-   Discord = { Enabled = false },
-   KeySystem = false
-})
-
-local MainTab = Window:CreateTab("Anti-Cheat Bypass", 4483362458)
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
-local BypassVelocityFly = false
-local FlySpeed = 25
-local AntiVoid = false
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+local camera = Workspace.CurrentCamera
 
--- ===== 1. BYPASS MOVEMENT (Через AssemblyLinearVelocity) =====
--- Этот метод обходит проверки CFrame, так как двигает физическое тело
-RunService.Heartbeat:Connect(function()
-    if BypassVelocityFly and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character.HumanoidRootPart
-        local cam = workspace.CurrentCamera
-        local moveVector = Vector3.new()
+-- Настраиваемая скорость передвижения
+local SPEED = 35 
 
-        local uis = game:GetService("UserInputService")
-        if uis:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + cam.CFrame.LookVector end
-        if uis:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - cam.CFrame.LookVector end
-        if uis:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - cam.CFrame.RightVector end
-        if uis:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + cam.CFrame.RightVector end
+-- 1. Удаляем хуманоид (обходим античит)
+local humanoid = character:FindFirstChildOfClass("Humanoid")
+if humanoid then
+    humanoid:Destroy()
+end
 
-        if moveVector.Magnitude > 0 then
-            hrp.AssemblyLinearVelocity = moveVector.Unit * FlySpeed
-        else
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0.01, 0) -- Легкая микро-гравитация, чтобы не кикало за зависание
-        end
-    end
+-- 2. Возвращаем камеру обратно на персонажа, чтобы она не улетала
+camera.CameraSubject = rootPart
+camera.CameraType = Enum.CameraType.Custom
+
+-- 3. Создаем кастомное управление на WASD
+local directions = {
+    W = Vector3.new(0, 0, -1),
+    S = Vector3.new(0, 0, 1),
+    A = Vector3.new(-1, 0, 0),
+    D = Vector3.new(1, 0, 0)
+}
+
+local activeKeys = {}
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.W then activeKeys.W = true end
+    if input.KeyCode == Enum.KeyCode.S then activeKeys.S = true end
+    if input.KeyCode == Enum.KeyCode.A then activeKeys.A = true end
+    if input.KeyCode == Enum.KeyCode.D then activeKeys.D = true end
 end)
 
--- ===== 2. TWEEN TELEPORT (Плавный телепорт к яйцу) =====
--- Вставь сюда координаты яйца или выбери объект
-local function safeTeleport(targetCFrame)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character.HumanoidRootPart
-        local distance = (hrp.Position - targetCFrame.Position).Magnitude
-        local timeToTravel = distance / 20 -- Скорость 20 студ/сек безопасна для античита
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.W then activeKeys.W = false end
+    if input.KeyCode == Enum.KeyCode.S then activeKeys.S = false end
+    if input.KeyCode == Enum.KeyCode.A then activeKeys.A = false end
+    if input.KeyCode == Enum.KeyCode.D then activeKeys.D = false end
+end)
 
-        local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
-        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-        tween:Play()
+-- Цикл движения (каждый кадр двигаем HumanoidRootPart относительно камеры)
+RunService.RenderStepped:Connect(function(dt)
+    if not character or not rootPart or not rootPart.Parent then return end
+    
+    local moveVector = Vector3.new()
+    local lookVector = camera.CFrame.LookVector
+    local rightVector = camera.CFrame.RightVector
+    
+    -- Убираем наклон по вертикали, чтобы персонаж не летал вверх/вниз при взгляде камеры
+    local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+    local flatRight = Vector3.new(rightVector.X, 0, rightVector.Z).Unit
+
+    if activeKeys.W then moveVector = moveVector + flatLook end
+    if activeKeys.S then moveVector = moveVector - flatLook end
+    if activeKeys.A then moveVector = moveVector - flatRight end
+    if activeKeys.D then moveVector = moveVector + flatRight end
+
+    if moveVector.Magnitude > 0 then
+        moveVector = moveVector.Unit
+        -- Перемещаем персонажа плавным шагом
+        rootPart.CFrame = rootPart.CFrame + (moveVector * SPEED * dt)
+        -- Поворачиваем персонажа по направлению движения
+        rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + flatLook)
     end
-end
-
--- ===== 3. GODMODE / ANTI-KILL (Блокировка урона) =====
-local function applyAntiKill()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        local humanoid = LocalPlayer.Character.Humanoid
-        -- Отключаем сработку состояния смерти на клиенте
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-    end
-end
-
--- ===== GUI ЭЛЕМЕНТЫ =====
-
-MainTab:CreateToggle({
-   Name = "Velocity Fly Bypass (Полёт)",
-   CurrentValue = false,
-   Callback = function(Value)
-      BypassVelocityFly = Value
-      applyAntiKill()
-   end,
-})
-
-MainTab:CreateSlider({
-   Name = "Bypass Speed (Не ставь больше 30!)",
-   Range = {10, 500},
-   Increment = 1,
-   Suffix = "Speed",
-   CurrentValue = 25,
-   Callback = function(Value)
-      FlySpeed = Value
-   end,
-})
-
-MainTab:CreateButton({
-   Name = "Instant Grab Egg (Мгновенный забор)",
-   Callback = function()
-      for _, prompt in pairs(workspace:GetDescendants()) do
-          if prompt:IsA("ProximityPrompt") then
-              fireproximityprompt(prompt)
-          end
-      end
-   end,
-})
-
-Rayfield:Notify({
-   Title = "Bypass Ready",
-   Content = "Используй Velocity Fly и не завышай скорость!",
-   Duration = 4,
-})
+end)
