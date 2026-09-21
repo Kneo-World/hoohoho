@@ -1,9 +1,9 @@
--- Загрузка библиотеки интерфейса Rayfield
+-- Загрузка интерфейса Rayfield67
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Rivals Script | Delta Hub",
-   LoadingTitle = "Rivals Menu",
+   Name = "Steal the Egg | Anti-Cheat Bypass Hub",
+   LoadingTitle = "Bypass Loader...",
    LoadingSubtitle = "by Assistant",
    ConfigurationSaving = { Enabled = false },
    Discord = { Enabled = false },
@@ -11,160 +11,124 @@ local Window = Rayfield:CreateWindow({
 })
 
 -- Создаём вкладки
-local MainTab = Window:CreateTab("Main (Combat)", 4483362458)
-local LocalTab = Window:CreateTab("Player Settings", 4483362458)
+local MainTab = Window:CreateTab("Bypass Features", 4483362458)
+local LocalTab = Window:CreateTab("Movement", 4483362458)
 
--- Сервисы и переменные
+-- Переменные и сервисы
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
 
-local AimbotEnabled = false
-local AimKeyHeld = false
-local ESPEnabled = false
-local InfJumpEnabled = false
-local CustomSpeed = 16
+local CFrameFlyEnabled = false
+local FlySpeed = 1.5
+local NoclipEnabled = false
+local AutoProximity = false
 
--- ===== 1. AIMBOT LOGIC =====
-local function getClosestEnemy()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
+-- ===== 1. CFrame Fly (Обход детектора WalkSpeed) =====
+RunService.RenderStepped:Connect(function()
+    if CFrameFlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local camera = workspace.CurrentCamera
+        local moveDir = Vector3.new()
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            -- Проверка на команду (если есть тимы)
-            if player.Team == nil or player.Team ~= LocalPlayer.Team then
-                local head = player.Character.Head
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                
-                if onScreen then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                    if distance < shortestDistance then
-                        closestPlayer = player
-                        shortestDistance = distance
-                    end
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+
+        if moveDir.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (moveDir.Unit * FlySpeed)
+            hrp.Velocity = Vector3.new(0, 0, 0) -- Обнуляем физическую скорость, чтобы античит не флагал
+        end
+    end
+end)
+
+-- ===== 2. Noclip (Безопасный проход сквозь стены) =====
+RunService.Stepped:Connect(function()
+    if NoclipEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- ===== 3. Auto Collect Eggs (Автовзаимодействие с ProximityPrompt) =====
+task.spawn(function()
+    while task.wait(0.2) do
+        if AutoProximity then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    -- Изменяем параметры так, чтобы забирать яйцо мгновенно
+                    prompt.HoldDuration = 0
+                    fireproximityprompt(prompt)
                 end
             end
         end
     end
-    return closestPlayer
-end
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    if AimbotEnabled and AimKeyHeld then
-        local target = getClosestEnemy()
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
-        end
-    end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.Touch then
-        AimKeyHeld = true
-    end
-end)
+-- ===== ЭЛЕМЕНТЫ GUI =====
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.Touch then
-        AimKeyHeld = false
-    end
-end)
-
--- ===== 2. ESP LOGIC =====
-local function applyESP(player)
-    if player == LocalPlayer then return end
-    
-    local function highlightCharacter(character)
-        if not character then return end
-        
-        -- Ждем появление ключевых частей
-        character:WaitForChild("HumanoidRootPart", 5)
-        
-        if not character:FindFirstChild("ESPHighlight") then
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "ESPHighlight"
-            highlight.Adornee = character
-            highlight.FillColor = Color3.fromRGB(255, 0, 0)
-            highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            highlight.OutlineTransparency = 0
-            highlight.Enabled = ESPEnabled
-            highlight.Parent = character
-        end
-    end
-
-    if player.Character then highlightCharacter(player.Character) end
-    player.CharacterAdded:Connect(highlightCharacter)
-end
-
-for _, p in pairs(Players:GetPlayers()) do applyESP(p) end
-Players.PlayerAdded:Connect(applyESP)
-
--- ===== 3. INFINITE JUMP =====
-UserInputService.JumpRequest:Connect(function()
-    if InfJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-    end
-end)
-
-
--- ===== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА (GUI) =====
-
--- Переключатель Аимбота
+-- Полёт CFrame
 MainTab:CreateToggle({
-   Name = "Enable Aimbot (Зажми ПКМ / Экран)",
+   Name = "Bypass Fly (CFrame)",
    CurrentValue = false,
    Callback = function(Value)
-      AimbotEnabled = Value
+      CFrameFlyEnabled = Value
    end,
 })
 
--- Переключатель ESP (ВХ)
-MainTab:CreateToggle({
-   Name = "Enable Wallhack (ESP)",
-   CurrentValue = false,
-   Callback = function(Value)
-      ESPEnabled = Value
-      for _, player in pairs(Players:GetPlayers()) do
-          if player.Character and player.Character:FindFirstChild("ESPHighlight") then
-              player.Character.ESPHighlight.Enabled = ESPEnabled
-          end
-      end
-   end,
-})
-
--- Ползунок Скорости
-LocalTab:CreateSlider({
-   Name = "WalkSpeed (Скорость)",
-   Range = {16, 120},
-   Increment = 1,
+-- Скорость полета
+MainTab:CreateSlider({
+   Name = "Fly Speed (Безопасная скорость)",
+   Range = {0.5, 5},
+   Increment = 0.1,
    Suffix = "Speed",
-   CurrentValue = 16,
+   CurrentValue = 1.5,
    Callback = function(Value)
-      CustomSpeed = Value
-      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-          LocalPlayer.Character.Humanoid.WalkSpeed = CustomSpeed
-      end
+      FlySpeed = Value
    end,
 })
 
--- Переключатель Бесконечного Прыжка
+-- Noclip
 LocalTab:CreateToggle({
-   Name = "Infinite Jump (Бесконечный прыжок)",
+   Name = "Noclip (Сквозь стены)",
    CurrentValue = false,
    Callback = function(Value)
-      InfJumpEnabled = Value
+      NoclipEnabled = Value
    end,
 })
 
--- Уведомление о загрузке
+-- Авто-сбор яиц
+MainTab:CreateToggle({
+   Name = "Instant Steal Eggs (Быстрый забор)",
+   CurrentValue = false,
+   Callback = function(Value)
+      AutoProximity = Value
+   end,
+})
+
+-- Уведомление
 Rayfield:Notify({
-   Title = "Rivals Script Loaded!",
-   Content = "Скрипт успешно активирован в Delta.",
-   Duration = 5,
+   Title = "Anti-Cheat Bypass Active",
+   Content = "Скрипт готов к работе в Delta!",
+   Duration = 4,
    Image = 4483362458,
 })
