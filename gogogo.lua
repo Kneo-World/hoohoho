@@ -1,4 +1,3 @@
----ваыуаыуаы
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
