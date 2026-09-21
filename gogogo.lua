@@ -1,4 +1,5 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+---323232
 
 local Window = Rayfield:CreateWindow({
    Name = "Steal the Egg | Hard Bypass",
@@ -78,7 +79,7 @@ MainTab:CreateToggle({
 
 MainTab:CreateSlider({
    Name = "Bypass Speed (Не ставь больше 30!)",
-   Range = {10, 40},
+   Range = {10, 500},
    Increment = 1,
    Suffix = "Speed",
    CurrentValue = 25,
