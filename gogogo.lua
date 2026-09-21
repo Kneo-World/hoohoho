@@ -8,9 +8,9 @@ local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
 local currentSpeed = 35
-local useCustomMove = true -- Флаг: работаем ли мы по кастомному движению
+local useCustomMove = true
 
--- 1. Создаем крутое GUI с двумя кнопками
+-- Создаем GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "EggBypassGUI"
 screenGui.Parent = CoreGui
@@ -68,22 +68,21 @@ local sBtnCorner = Instance.new("UICorner")
 sBtnCorner.CornerRadius = UDim.new(0, 6)
 sBtnCorner.Parent = speedButton
 
--- Кнопка возврата хуманоида (для получения яйца!)
-local restoreButton = Instance.new("TextButton")
-restoreButton.Size = UDim2.new(0.85, 0, 0, 35)
-restoreButton.Position = UDim2.new(0.075, 0, 0.68, 0)
-restoreButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Зеленая
-restoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-restoreButton.Text = "ВЕРНУТЬ ХУМАНОИД (ЯЙЦО)"
-restoreButton.TextSize = 12
-restoreButton.Font = Enum.Font.SourceSansBold
-restoreButton.Parent = frame
+-- Кнопка СБРОСА (для честного получения яйца)
+local resetButton = Instance.new("TextButton")
+resetButton.Size = UDim2.new(0.85, 0, 0, 35)
+resetButton.Position = UDim2.new(0.075, 0, 0.68, 0)
+resetButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+resetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetButton.Text = "СБРОСИТЬСЯ (ВЗЯТЬ ЯЙЦО)"
+resetButton.TextSize = 12
+resetButton.Font = Enum.Font.SourceSansBold
+resetButton.Parent = frame
 
 local rBtnCorner = Instance.new("UICorner")
 rBtnCorner.CornerRadius = UDim.new(0, 6)
-rBtnCorner.Parent = restoreButton
+rBtnCorner.Parent = resetButton
 
--- Обработка кнопки скорости
 speedButton.MouseButton1Click:Connect(function()
     local val = tonumber(textBox.Text)
     if val then
@@ -91,7 +90,7 @@ speedButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Функция удаления хуманоида (для быстрого бега)
+-- Удаление хуманоида для бега
 local function removeHumanoid(char)
     if not useCustomMove then return end
     local rootPart = char:WaitForChild("HumanoidRootPart", 5)
@@ -106,35 +105,27 @@ local function removeHumanoid(char)
     camera.CameraType = Enum.CameraType.Custom
 end
 
--- Обработка кнопки возврата хуманоида
-restoreButton.MouseButton1Click:Connect(function()
-    useCustomMove = false -- Отключаем кастомное движение, чтобы вернуть контроль игре
-    
+-- Кнопка сброса: просто убивает персонажа, чтобы игра выдала нормальное тело
+resetButton.MouseButton1Click:Connect(function()
+    useCustomMove = false
     local char = player.Character
     if char then
-        -- Проверяем, есть ли уже хуманоид, если нет — создаем стандартный
         local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if not humanoid then
-            humanoid = Instance.new("Humanoid")
-            humanoid.Parent = char
-        end
-        humanoid.WalkSpeed = 16 -- Возвращаем нормальную скорость для безопасности
-        
-        -- Возвращаем камере стандартный субъект
-        camera.CameraSubject = humanoid
-        
-        -- Сбрасываем платформу/партию, чтобы сервер обновил состояние игрока
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        if humanoid then
+            humanoid.Health = 0 -- Убиваем персонажа (честный респавн)
+        else
+            -- Если хуманоида уже нет, ломаем корень, чтобы игра засчитала смерть
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                root:Destroy()
+            end
         end
     end
 end)
 
--- Инициализация при старте персонажа
 local function onCharacterAdded(char)
     useCustomMove = true
-    task.wait(0.5) -- Небольшая задержка, чтобы персонаж успел прогрузиться
+    task.wait(0.4)
     if useCustomMove then
         removeHumanoid(char)
     end
@@ -148,7 +139,7 @@ end
 
 player.CharacterAdded:Connect(onCharacterAdded)
 
--- Управление на WASD без хуманоида
+-- Управление WASD
 local activeKeys = {W = false, S = false, A = false, D = false}
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -167,7 +158,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 RunService.RenderStepped:Connect(function(dt)
-    if not useCustomMove then return end -- Если нажали вернуть хуманоид — скрипт движения молчит
+    if not useCustomMove then return end
     
     local char = player.Character
     if not char then return end
