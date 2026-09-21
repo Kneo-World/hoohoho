@@ -8,7 +8,7 @@ local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
 -- Переменная скорости (по умолчанию 35)
-local currentSpeed = 200
+local currentSpeed = 35
 
 -- 1. Создаем GUI для управления скоростью
 local screenGui = Instance.new("ScreenGui")
@@ -33,7 +33,7 @@ title.Size = UDim2.new(1, 0, 0, 35)
 title.BackgroundTransparency = 1
 title.Text = "Anti-Cheat Bypass Speed"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize: 14
+title.TextSize = 14
 title.Font = Enum.Font.SourceSansBold
 title.Parent = frame
 
