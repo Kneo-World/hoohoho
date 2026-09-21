@@ -8,7 +8,7 @@ local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
 -- Переменная скорости (по умолчанию 35)
-local currentSpeed = 35
+local currentSpeed = 200
 
 -- 1. Создаем GUI для управления скоростью
 local screenGui = Instance.new("ScreenGui")
